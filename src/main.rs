@@ -11,6 +11,8 @@ use rocket::tokio::fs::File;
 use std::process::Command;
 use std::time::{Duration, SystemTime};
 use std::{fs, thread};
+use rocket::http::Status;
+use rocket::Response;
 
 #[post("/upload", format = "image/png", data = "<file>")]
 async fn upload_png(mut file: TempFile<'_>) -> std::io::Result<String> {
@@ -56,10 +58,15 @@ async fn query(id: FileId<'_>) -> Json<FileQueryResponse> {
     }
 }
 
+#[get("/health")]
+async fn health() -> Status {
+    Status::Ok
+}
+
 #[launch]
 fn rocket() -> _ {
     let _handler = thread::spawn(|| fawkes_runner());
-    rocket::build().mount("/", routes![upload_png, upload_jpeg, download, query])
+    rocket::build().mount("/", routes![upload_png, upload_jpeg, download, query, health])
 }
 
 fn fawkes_runner() {
