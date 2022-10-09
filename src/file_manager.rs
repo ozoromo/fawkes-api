@@ -1,13 +1,13 @@
-use rocket::serde::Serialize;
-use std::borrow::Cow;
-use std::path::{Path, PathBuf};
 use rand::Rng;
 use rocket::request::FromParam;
-
+use rocket::serde::Serialize;
+use std::borrow::Cow;
+use std::env;
+use std::path::{Path, PathBuf};
 
 #[derive(Serialize)]
 pub struct FileId<'a> {
-    pub id: Cow<'a, str>
+    pub id: Cow<'a, str>,
 }
 
 #[derive(Serialize)]
@@ -16,7 +16,6 @@ pub enum FileQueryResponse {
     READY,
     NotFound,
 }
-
 
 impl FileId<'_> {
     pub fn new(size: usize) -> Self {
@@ -32,17 +31,29 @@ impl FileId<'_> {
     }
 
     pub fn file_path(&self, extension: &str) -> PathBuf {
-        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/", "uploads", "/").to_string() + self.id.as_ref() + extension;
+        let dir = match env::current_exe() {
+            Ok(exe_path) => exe_path,
+            Err(e) => panic!("Unable to get executable path"),
+        };
+
+        let root = dir
+            .to_str()
+            .expect("Couldn't parse executable path to string")
+            .to_string()
+            + "/uploads/"
+            + self.id.as_ref()
+            + extension;
         Path::new(&root).to_path_buf()
     }
-
 }
 
 impl<'a> FromParam<'a> for FileId<'a> {
     type Error = &'a str;
 
     fn from_param(param: &'a str) -> Result<Self, Self::Error> {
-        param.chars().all(|c| c.is_ascii_alphanumeric())
+        param
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric())
             .then(|| FileId { id: param.into() })
             .ok_or(param)
     }

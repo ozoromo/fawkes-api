@@ -1,16 +1,17 @@
-FROM rust:latest as builder
+FROM rust:buster as builder
 
 RUN USER=root cargo new --bin fawkes-api
 WORKDIR ./fawkes-api
 COPY ./Cargo.toml ./Cargo.toml
 ADD https://mirror.cs.uchicago.edu/fawkes/files/1.0/fawkes_binary_linux-v1.0.zip ./
-RUN apt -y install musl-tools
-RUN cargo build --target x86_64-unknown-linux-musl --release
+#RUN rustup target add x86_64-unknown-linux-musl
+#--target x86_64-unknown-linux-musl
+RUN cargo build  --release
 RUN rm src/*.rs
 
 ADD . ./
 
-RUN cargo build --target x86_64-unknown-linux-musl --release
+RUN cargo build --release
 
 
 
