@@ -31,10 +31,12 @@ impl FileId<'_> {
     }
 
     pub fn file_path(&self, extension: &str) -> PathBuf {
-        let dir = match env::current_exe() {
+        let exe_path = match env::current_exe() {
             Ok(exe_path) => exe_path,
-            Err(e) => panic!("Unable to get executable path"),
+            Err(_e) => panic!("Unable to get executable path"),
         };
+
+        let dir = exe_path.parent().expect("Executable has no parent path");
 
         let root = dir
             .to_str()

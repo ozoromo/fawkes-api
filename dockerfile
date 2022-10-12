@@ -27,17 +27,28 @@ RUN apt-get update \
 EXPOSE 8000
 
 ENV TZ=Etc/UTC \
-    APP_USER=appuser
+    APP_USER=appuser \
+    ROCKET_address=0.0.0.0
 
 RUN groupadd $APP_USER \
     && useradd -g $APP_USER $APP_USER \
     && mkdir -p ${APP}
 
-COPY --from=builder /fawkes-api/target/release/fawkes-api ${APP}/
-COPY --from=builder /fawkes-api/protection ${APP}/
-
+#Install fawkes dependency
+#Wierdly broke earilier so try to leave in this order
 RUN apt-get update
 RUN apt-get install libglib2.0-0 libsm6 libxext6 libxrender-dev  libfontconfig1 -y
 RUN pip install opencv-python
+RUN apt-get install ffmpeg -y
 
+#Copy fawkes binary (protection) and api wrapper binary (fawkes-api) to the finnished app image
+COPY --from=builder /fawkes-api/target/release/fawkes-api ${APP}/
+COPY --from=builder /fawkes-api/protection ${APP}/
+COPY --from=builder /fawkes-api/Rocket.toml ${APP}/
+
+
+#Crete folder that will be used for uploaded images
 RUN mkdir ${APP}/uploads
+
+WORKDIR /usr/src/app
+ENTRYPOINT ["./fawkes-api"]

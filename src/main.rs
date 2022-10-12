@@ -13,6 +13,7 @@ use std::process::Command;
 use std::time::{Duration, SystemTime};
 use std::{env, fs, thread};
 
+//Currently using two paths for png and jpeg, hopefully this can be merged
 #[post("/upload", format = "image/png", data = "<file>")]
 async fn upload_png(mut file: TempFile<'_>) -> std::io::Result<String> {
     println!("Got upload request");
@@ -31,7 +32,6 @@ async fn upload_png(mut file: TempFile<'_>) -> std::io::Result<String> {
 async fn upload_jpeg(mut file: TempFile<'_>) -> std::io::Result<String> {
     println!("Got upload request");
     let id = FileId::new(10);
-    dbg!(id.file_path(".jpg"));
     return match file.persist_to(&id.file_path(".jpg")).await {
         Ok(_t) => Ok(id.id.to_string()),
         Err(e) => {
@@ -43,11 +43,13 @@ async fn upload_jpeg(mut file: TempFile<'_>) -> std::io::Result<String> {
 
 #[get("/download/<id>")]
 async fn download(id: FileId<'_>) -> Option<File> {
+    println!("Got download request");
     File::open(id.file_path("_low_cloaked.png")).await.ok()
 }
 
 #[get("/query/<id>")]
 async fn query(id: FileId<'_>) -> Json<FileQueryResponse> {
+    println!("Got query request");
     if id.file_path("_low_cloaked.png").exists() {
         Json(FileQueryResponse::READY)
     } else if id.file_path(".jpg").exists() {
@@ -73,10 +75,12 @@ fn rocket() -> _ {
 
 fn fawkes_runner() {
     println!("Thread spawned");
-    let dir = match env::current_exe() {
+    let exe_path = match env::current_exe() {
         Ok(exe_path) => exe_path,
-        Err(e) => panic!("Unable to get executable path"),
+        Err(_e) => panic!("Unable to get executable path"),
     };
+
+    let dir = exe_path.parent().expect("Executable has no parent path");
 
     let root = dir
         .to_str()
@@ -91,13 +95,11 @@ fn fawkes_runner() {
 
     loop {
         thread::sleep(Duration::from_secs(2));
-
-        dbg!(root.clone());
         let _output = command.output().expect("Something went wrong");
         let paths = fs::read_dir(&filepath).expect("Couldn't find upload directory");
 
         for file in paths {
-            let filename = file
+            let filename = &file
                 .as_ref()
                 .unwrap()
                 .file_name()
@@ -105,7 +107,7 @@ fn fawkes_runner() {
                 .expect("Invalid file name");
 
             if filename.ends_with("_low_cloaked.png") {
-                let file_age = file
+                let file_age = &file
                     .unwrap()
                     .metadata()
                     .expect("Failed to get file metadata")
@@ -115,7 +117,12 @@ fn fawkes_runner() {
                     .duration_since(file_age.clone())
                     .expect("couldn't get system time")
                     > Duration::from_secs(60 * 5)
-                {}
+                {
+                    match fs::remove_file(filepath.clone() + "/" + &filename) {
+                        Ok(_) => {println!("Removed old file")}
+                        Err(_) => {}
+                    }
+                }
 
                 match fs::remove_file(
                     filepath.clone() + "/" + &filename[0..filename.len() - 16] + ".png",
@@ -124,9 +131,7 @@ fn fawkes_runner() {
                         println!("Processed file removed");
                         continue;
                     }
-                    Err(_e) => {
-                        println!("Failed to remove processed file, this is a common error and can mostly be ignored")
-                    }
+                    Err(_e) => {}
                 }
                 match fs::remove_file(
                     filepath.clone() + "/" + &filename[0..filename.len() - 16] + ".jpg",
@@ -135,9 +140,7 @@ fn fawkes_runner() {
                         println!("Processed file removed");
                         continue;
                     }
-                    Err(_e) => {
-                        println!("Failed to remove processed file, this is a common error and can mostly be ignored")
-                    }
+                    Err(_e) => {}
                 }
             }
         }
