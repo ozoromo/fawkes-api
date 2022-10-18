@@ -60,3 +60,14 @@ impl<'a> FromParam<'a> for FileId<'a> {
             .ok_or(param)
     }
 }
+
+
+pub fn get_parent_path() -> PathBuf {
+    let exe_path = match env::current_exe() {
+        Ok(exe_path) => exe_path,
+        Err(_e) => panic!("Unable to get executable path"),
+    };
+
+    let dir = exe_path.parent().expect("Executable has no parent path");
+    return dir.clone().to_path_buf()
+}

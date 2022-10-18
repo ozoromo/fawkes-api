@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 rocket = {version = "0.5.0-rc.2", features = ["serde_json", "json"]}
 serde = "1.0.145"
+serde_json = "1.0.86"
 rand = "0.8.5"
