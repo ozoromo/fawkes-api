@@ -2,8 +2,14 @@ use rand::Rng;
 use rocket::request::FromParam;
 use rocket::serde::Serialize;
 use std::borrow::Cow;
-use std::env;
+use std::{env, fs};
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use rocket::fairing::{Fairing, Info, Kind};
+use rocket::{Orbit, Rocket};
+use crate::ValidKeys;
+
+pub struct KeyLoader;
 
 #[derive(Serialize)]
 pub struct FileId<'a> {
@@ -15,6 +21,30 @@ pub enum FileQueryResponse {
     NotReady,
     READY,
     NotFound,
+}
+
+
+#[rocket::async_trait]
+impl Fairing for KeyLoader {
+    fn info(&self) -> Info {
+        Info {
+            name: "ApiKey-Loader",
+            kind: Kind::Shutdown
+        }
+    }
+
+    async fn on_shutdown(&self, rocket: &Rocket<Orbit>) {
+        println!("on shutdown ran");
+
+        let keystorage = get_parent_path().to_str().unwrap().to_string()+"/keystore";
+        let keymap_file = PathBuf::from(keystorage);
+
+        let keymap  = rocket.state::<ValidKeys>().expect("Couldn't access api key map");
+
+        let mut file_handler = fs::File::create(keymap_file).expect("Couldn't create keystore file");
+        file_handler.write(serde_json::to_string(keymap).expect("Couldn't serialize keystore").as_ref()).expect("Couldn't write to keystore file");
+        file_handler.flush().expect("Couldn't write to keystore file");
+    }
 }
 
 impl FileId<'_> {

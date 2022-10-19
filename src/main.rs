@@ -6,7 +6,7 @@ use auth::*;
 extern crate rocket;
 extern crate core;
 
-use crate::file_manager::{FileId, FileQueryResponse};
+use crate::file_manager::{FileId, FileQueryResponse, KeyLoader};
 use rocket::fs::TempFile;
 use rocket::http::Status;
 use rocket::serde::json::Json;
@@ -14,11 +14,12 @@ use rocket::tokio::fs::File;
 use std::process::Command;
 use std::time::{Duration, SystemTime};
 use std::{env, fs, thread};
-use rocket::fairing::Fairing;
+
+
 
 //Currently using two paths for png and jpeg, hopefully this can be merged
 #[post("/upload", format = "image/png", data = "<file>")]
-async fn upload_png(mut file: TempFile<'_>, key: ApiKey<'_>) -> std::io::Result<String> {
+async fn upload_png(mut file: TempFile<'_>, _key: ApiKey<'_>) -> std::io::Result<String> {
     println!("Got upload request");
     let id = FileId::new(10);
     dbg!(id.file_path(".jpg"));
@@ -31,8 +32,10 @@ async fn upload_png(mut file: TempFile<'_>, key: ApiKey<'_>) -> std::io::Result<
     };
 }
 
+//TODO add a create key path
+
 #[post("/upload", format = "image/jpeg", data = "<file>")]
-async fn upload_jpeg(mut file: TempFile<'_>, key: ApiKey<'_>) -> std::io::Result<String> {
+async fn upload_jpeg(mut file: TempFile<'_>, _key: ApiKey<'_>) -> std::io::Result<String> {
     println!("Got upload request");
     let id = FileId::new(10);
     return match file.persist_to(&id.file_path(".jpg")).await {
@@ -45,13 +48,13 @@ async fn upload_jpeg(mut file: TempFile<'_>, key: ApiKey<'_>) -> std::io::Result
 }
 
 #[get("/download/<id>")]
-async fn download(id: FileId<'_>, key: ApiKey<'_>) -> Option<File> {
+async fn download(id: FileId<'_>, _key: ApiKey<'_>) -> Option<File> {
     println!("Got download request");
     File::open(id.file_path("_low_cloaked.png")).await.ok()
 }
 
 #[get("/query/<id>")]
-async fn query(id: FileId<'_>, key: ApiKey<'_>) -> Json<FileQueryResponse> {
+async fn query(id: FileId<'_>, _key: ApiKey<'_>) -> Json<FileQueryResponse> {
     println!("Got query request");
     if id.file_path("_low_cloaked.png").exists() {
         Json(FileQueryResponse::READY)
@@ -63,7 +66,7 @@ async fn query(id: FileId<'_>, key: ApiKey<'_>) -> Json<FileQueryResponse> {
 }
 
 #[get("/health")]
-async fn health(key: ApiKey<'_>) -> Status {
+async fn health(_key: ApiKey<'_>) -> Status {
     Status::Ok
 }
 
@@ -144,7 +147,7 @@ fn fawkes_runner() {
 #[launch]
 fn rocket() -> _ {
     let _handler = thread::spawn(|| fawkes_runner());
-    rocket::build().attach(ValidKeys::new()).attach(ValidKeys::new()).mount(
+    rocket::build().attach(KeyLoader).manage(ValidKeys::from_file()).mount(
         "/",
         routes![upload_png, upload_jpeg, download, query, health],
     )
