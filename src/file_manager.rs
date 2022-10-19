@@ -11,11 +11,13 @@ use crate::ValidKeys;
 
 pub struct KeyLoader;
 
+/// File id used in various queries
 #[derive(Serialize)]
 pub struct FileId<'a> {
     pub id: Cow<'a, str>,
 }
 
+/// Enum listing the possible responses when querying for a certain file
 #[derive(Serialize)]
 pub enum FileQueryResponse {
     NotReady,
@@ -23,7 +25,7 @@ pub enum FileQueryResponse {
     NotFound,
 }
 
-
+///Implements Fairing for KeyLoader in order to automatically save keys to storage on shutdown
 #[rocket::async_trait]
 impl Fairing for KeyLoader {
     fn info(&self) -> Info {
@@ -47,6 +49,7 @@ impl Fairing for KeyLoader {
     }
 }
 
+/// Utility functions for the fileID struct
 impl FileId<'_> {
     pub fn new(size: usize) -> Self {
         const BASE62: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -61,12 +64,7 @@ impl FileId<'_> {
     }
 
     pub fn file_path(&self, extension: &str) -> PathBuf {
-        let exe_path = match env::current_exe() {
-            Ok(exe_path) => exe_path,
-            Err(_e) => panic!("Unable to get executable path"),
-        };
-
-        let dir = exe_path.parent().expect("Executable has no parent path");
+       let dir = get_parent_path(); 
 
         let root = dir
             .to_str()
@@ -79,6 +77,7 @@ impl FileId<'_> {
     }
 }
 
+///Allows checking if fileID is correctly formatted in requests
 impl<'a> FromParam<'a> for FileId<'a> {
     type Error = &'a str;
 
@@ -91,7 +90,7 @@ impl<'a> FromParam<'a> for FileId<'a> {
     }
 }
 
-
+///Gets the executables parent directory path
 pub fn get_parent_path() -> PathBuf {
     let exe_path = match env::current_exe() {
         Ok(exe_path) => exe_path,

@@ -6,18 +6,19 @@ use auth::*;
 extern crate rocket;
 extern crate core;
 
-use crate::file_manager::{FileId, FileQueryResponse, KeyLoader};
+use crate::file_manager::{FileId, FileQueryResponse, get_parent_path, KeyLoader};
 use rocket::fs::TempFile;
 use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket::tokio::fs::File;
 use std::process::Command;
 use std::time::{Duration, SystemTime};
-use std::{env, fs, thread};
+use std::{fs, thread};
 
 
 
 //Currently using two paths for png and jpeg, hopefully this can be merged
+/// Upload path for png files
 #[post("/upload", format = "image/png", data = "<file>")]
 async fn upload_png(mut file: TempFile<'_>, _key: ApiKey<'_>) -> std::io::Result<String> {
     println!("Got upload request");
@@ -34,6 +35,7 @@ async fn upload_png(mut file: TempFile<'_>, _key: ApiKey<'_>) -> std::io::Result
 
 //TODO add a create key path
 
+/// Upload path for jpeg files
 #[post("/upload", format = "image/jpeg", data = "<file>")]
 async fn upload_jpeg(mut file: TempFile<'_>, _key: ApiKey<'_>) -> std::io::Result<String> {
     println!("Got upload request");
@@ -47,12 +49,15 @@ async fn upload_jpeg(mut file: TempFile<'_>, _key: ApiKey<'_>) -> std::io::Resul
     };
 }
 
+/// Download path for getting images using their id
+/// * `id` - The id used to select what image to download
 #[get("/download/<id>")]
 async fn download(id: FileId<'_>, _key: ApiKey<'_>) -> Option<File> {
     println!("Got download request");
     File::open(id.file_path("_low_cloaked.png")).await.ok()
 }
 
+/// Query path for getting a images status using its ID
 #[get("/query/<id>")]
 async fn query(id: FileId<'_>, _key: ApiKey<'_>) -> Json<FileQueryResponse> {
     println!("Got query request");
@@ -65,19 +70,17 @@ async fn query(id: FileId<'_>, _key: ApiKey<'_>) -> Json<FileQueryResponse> {
     }
 }
 
+/// Basic health check path
+/// Returns 200 when alive
 #[get("/health")]
 async fn health(_key: ApiKey<'_>) -> Status {
     Status::Ok
 }
 
+/// Function runs in separate thread and takes care of all things FAWKES
 fn fawkes_runner() {
     println!("Thread spawned");
-    let exe_path = match env::current_exe() {
-        Ok(exe_path) => exe_path,
-        Err(_e) => panic!("Unable to get executable path"),
-    };
-
-    let dir = exe_path.parent().expect("Executable has no parent path");
+    let dir = get_parent_path();
 
     let root = dir
         .to_str()
@@ -144,6 +147,8 @@ fn fawkes_runner() {
     }
 }
 
+/// Builds and launches the rocket application.
+/// This is also the replacement for the main function
 #[launch]
 fn rocket() -> _ {
     let _handler = thread::spawn(|| fawkes_runner());

@@ -10,6 +10,7 @@ use crate::file_manager::get_parent_path;
 use crate::{rocket, Status};
 
 pub struct ApiKey<'a>(&'a str);
+
 pub struct RootKey<'b>(&'b str);
 //TODO load root key from env or similar
 
@@ -19,16 +20,20 @@ pub enum KeyError {
     Invalid,
 }
 
+/// Struct containing a map of all valid api keys
 #[derive(Serialize, Deserialize)]
 pub struct ValidKeys {
     pub(crate) keys: Option<HashMap<String, i32>>,
 }
 
+///Utility functions for the ValidKeys struct
 impl ValidKeys {
     pub fn new() -> ValidKeys {
         ValidKeys {keys: None}
     }
 
+    /// Retrieves ValidKeys from file found in the binaries directory.
+    /// If not found creates a new struct
     pub fn from_file() -> ValidKeys {
         let key_storage = get_parent_path().to_str().unwrap().to_string()+"/keystore";
         let keymap = PathBuf::from(key_storage);
@@ -46,7 +51,7 @@ impl ValidKeys {
 
 
 
-
+/// Implements some features allowing for authenticated api calls
 #[rocket::async_trait]
 impl<'a> FromRequest<'a> for ApiKey<'a> {
     type Error = KeyError;
@@ -66,6 +71,8 @@ impl<'a> FromRequest<'a> for ApiKey<'a> {
 }
 
 
+/// Implements some features allowing for root authenticated api calls.
+/// This can be used for creating new api keys
 #[rocket::async_trait]
 impl<'b> FromRequest<'b> for RootKey<'b> {
     type Error = KeyError;
